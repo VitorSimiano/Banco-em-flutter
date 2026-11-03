@@ -1,0 +1,42 @@
+rules_version = '2';
+
+// Regras de segurança do Cloud Firestore.
+//
+// Cada usuário só acessa os documentos que estão sob users/{seu uid}/...
+// Qualquer outro caminho é bloqueado. Para publicar:
+//   firebase deploy --only firestore:rules
+// (ou copie o conteúdo para Firestore Database > Regras no console).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/notes/{noteId} {
+      allow read, delete: if isOwner(userId);
+
+      allow create, update: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.title is string
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.content is string
+        && request.resource.data.content.size() <= 100000;
+    }
+
+    match /users/{userId}/categories/{categoryId} {
+      allow read, delete: if isOwner(userId);
+
+      allow create, update: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60;
+    }
+
+    // Todo o resto é negado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
